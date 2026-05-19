@@ -38,7 +38,16 @@ pub enum Token {
     RightBrace,
 }
 
-pub fn tokenize(line: String) -> Vec<Token> {
+pub fn tokenize(line: String,is_long_notes: bool) ->(Vec<Token>,bool) {
+    let line = line.trim().to_string();
+    if is_long_notes {
+        return if line == "}" {
+            (Vec::new(), false)
+        } else {
+            (Vec::new(), true)
+        };
+    }
+
     let mut tokens: Vec<Token> = Vec::new();
     let characters: Vec<char> = line.chars().collect();
     let mut i = 0;
@@ -157,8 +166,26 @@ pub fn tokenize(line: String) -> Vec<Token> {
         }
 
         let word: String = characters[start..i].iter().collect();
-
-        if word == "is" {
+        if word == "notes:" && !is_long_notes {
+            let mut j = i;
+            while j < characters.len() && characters[j] == ' ' {
+                j += 1;
+            }
+            if j < characters.len() && characters[j] == '{' {
+                j += 1;
+                while j < characters.len() && characters[j] != '}' {
+                    j += 1;
+                }
+                if j < characters.len() && characters[j] == '}' {
+                    i = j + 1;
+                    continue;
+                } else {
+                    return (tokens, true);
+                }
+            } else {
+                return (tokens, false);
+            }
+        } else if word == "is" {
             tokens.push(Token::Is);
         } else if word == "if" {
             tokens.push(Token::If);
@@ -172,8 +199,13 @@ pub fn tokenize(line: String) -> Vec<Token> {
             tokens.push(Token::Identifier(word));
         }
     }
-
-    tokens
+    
+    if i > 0 {
+        let last = characters[i-1];
+        if last == '{' || last == '}' || last == '.' { return (tokens, false); }
+        tokens.push(Token::Dot);
+    }
+    (tokens, false)
 }
 
 fn parse_operator(operator: String) -> Operator {
